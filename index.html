@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Starbox</title>
+	<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#075e54">
+<meta name="apple-mobile-web-app-capable" content="yes">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+    <script src="strophe.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, 'Segoe UI', Tahoma, sans-serif; }
+        body { background: #e5ddd5; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        #loginScreen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: #075e54; padding: 20px; }
+        #loginScreen h1 { color: white; margin-bottom: 30px; font-size: 2.5em; }
+        #loginScreen input { width: 100%; max-width: 320px; padding: 15px; margin: 8px 0; border: none; border-radius: 8px; font-size: 16px; }
+        #loginScreen button { width: 100%; max-width: 320px; padding: 15px; margin-top: 10px; background: #25d366; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        #loginError { color: #ff6b6b; margin-top: 15px; font-size: 14px; text-align: center; max-width: 320px; }
+        #rememberMe { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: white; font-size: 14px; }
+        #rememberMe input { width: auto; margin: 0; }
+        #mainScreen { display: none; flex-direction: column; height: 100vh; }
+        .header { background: #075e54; color: white; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+        .header h2 { font-size: 18px; }
+        .header .status { font-size: 12px; opacity: 0.8; }
+        .header button { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 8px; }
+        .tabs { display: flex; background: #075e54; }
+        .tab { flex: 1; padding: 12px; color: white; text-align: center; cursor: pointer; font-size: 13px; opacity: 0.6; border-bottom: 3px solid transparent; }
+        .tab.active { opacity: 1; border-bottom-color: #25d366; }
+        #contactList, #groupsList { flex: 1; overflow-y: auto; background: white; }
+        .contact-item { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer; position: relative; }
+        .contact-avatar { width: 48px; height: 48px; border-radius: 50%; background: #25d366; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; margin-left: 12px; flex-shrink: 0; }
+        .contact-avatar.group { background: #075e54; }
+        .contact-info { flex: 1; min-width: 0; }
+        .contact-name { font-size: 16px; font-weight: 500; }
+        .contact-status { font-size: 12px; color: #999; margin-top: 2px; }
+        .contact-status.unread { color: #25d366; font-weight: bold; }
+        .unread-badge { background: #25d366; color: white; border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: bold; min-width: 24px; text-align: center; }
+        .contact-delete-btn { background: #e74c3c; color: white; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 14px; cursor: pointer; padding: 0; margin-right: 8px; flex-shrink: 0; }
+        .rank-badge { display: inline-block; margin-left: 4px; font-size: 14px; vertical-align: middle; }
+        #chatScreen, #groupChatScreen { display: none; flex-direction: column; height: 100vh; position: absolute; top: 0; left: 0; right: 0; background: #e5ddd5; z-index: 100; }
+        .chat-header { background: #075e54; color: white; padding: 10px 16px; display: flex; align-items: center; flex-shrink: 0; }
+        .chat-header .back-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0 10px; }
+        .chat-header .chat-info { flex: 1; }
+        .chat-header .chat-name { font-size: 17px; font-weight: 500; }
+        .chat-header .chat-members { font-size: 12px; opacity: 0.8; }
+        .chat-header .info-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 8px; }
+        .chat-header .clear-btn { background: rgba(231,76,60,0.8); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 8px; }
+        #groupVideoArea { display: none; background: black; position: relative; flex-shrink: 0; }
+        #groupVideoArea.show { display: block; height: 40vh; min-height: 180px; max-height: 45vh; }
+        #groupVideo { width: 100%; height: 100%; object-fit: contain; background: black; }
+        #groupVideoControls { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; z-index: 10; }
+        #groupVideoControls button { background: rgba(0,0,0,0.7); color: white; border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        #groupVideoInfo { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.7); color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; }
+        #groupCinemaBar { display: none; background: linear-gradient(90deg, #075e54, #0a7a6d); color: white; padding: 10px 14px; align-items: center; gap: 10px; flex-shrink: 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.15); }
+        #groupCinemaBar.show { display: flex; }
+        #groupCinemaBar .cinema-icon { font-size: 22px; }
+        #groupCinemaBar .cinema-info { flex: 1; min-width: 0; }
+        #groupCinemaBar .cinema-label { font-size: 11px; opacity: 0.8; }
+        #groupCinemaBar .cinema-name { font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #groupCinemaBar .cinema-btn { background: #25d366; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; white-space: nowrap; }
+        #groupCinemaBar .cinema-btn.stop { background: #e74c3c; }
+        #messagesArea, #groupMessagesArea { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-height: 100px; }
+        .message { max-width: 80%; padding: 8px 12px; border-radius: 8px; font-size: 15px; line-height: 1.4; word-wrap: break-word; position: relative; }
+        .message.sent { align-self: flex-end; background: #dcf8c6; border-bottom-right-radius: 2px; }
+        .message.received { align-self: flex-start; background: white; border-bottom-left-radius: 2px; }
+        .message.system { align-self: center; background: #fff3cd; color: #856404; font-size: 12px; padding: 6px 12px; border-radius: 12px; }
+        .message.cinema { align-self: center; background: #075e54; color: white; font-size: 13px; padding: 10px 16px; border-radius: 8px; max-width: 90%; text-align: center; }
+        .message.cinema button { background: #25d366; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px; font-size: 14px; }
+        .message .sender-name { font-size: 12px; color: #075e54; font-weight: bold; margin-bottom: 4px; }
+        .message .time { font-size: 10px; color: #999; text-align: left; margin-top: 4px; }
+        .input-area { background: #f0f0f0; padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .input-area input { flex: 1; padding: 12px 16px; border: none; border-radius: 24px; font-size: 15px; outline: none; }
+        .input-area button { background: #075e54; color: white; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 18px; cursor: pointer; }
+        .input-area .cinema-btn { background: #e74c3c; }
+        .popup-screen { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: white; z-index: 200; padding: 16px; overflow-y: auto; }
+        .popup-header { display: flex; align-items: center; margin-bottom: 16px; }
+        .popup-header button { background: none; border: none; font-size: 24px; cursor: pointer; padding: 8px; }
+        .popup-header h3 { margin-right: 12px; font-size: 18px; }
+        .popup-screen input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; margin-bottom: 10px; }
+        .btn-primary { width: 100%; margin-top: 12px; padding: 14px; background: #075e54; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        .btn-danger { width: 100%; margin-top: 8px; padding: 12px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+        #requestsScreen { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: white; z-index: 200; padding: 16px; overflow-y: auto; }
+        .request-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
+        .btn-accept { background: #25d366; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-left: 8px; }
+        .btn-reject { background: #ccc; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        .badge { background: #ff3b30; color: white; border-radius: 10px; padding: 2px 8px; font-size: 12px; margin-right: 6px; }
+        .member-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #f0f0f0; position: relative; }
+        .member-item .contact-avatar { width: 40px; height: 40px; font-size: 16px; margin-left: 10px; }
+        .member-item .member-info { flex: 1; }
+        .member-item .member-name { font-size: 15px; font-weight: 500; }
+        .member-item .member-role { font-size: 11px; color: #666; margin-top: 2px; }
+        .member-item .member-actions { display: flex; gap: 4px; }
+        .member-item .action-btn { background: #ecf0f1; border: none; border-radius: 6px; width: 34px; height: 34px; font-size: 14px; cursor: pointer; }
+        .member-item .action-btn.kick { background: #f39c12; color: white; }
+        .member-item .action-btn.ban { background: #e74c3c; color: white; }
+        .member-item .action-btn.promote { background: #3498db; color: white; }
+        .ranks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; padding: 10px 0; }
+        .rank-card { background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 10px; padding: 12px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .rank-card:hover { background: #e8f5e9; border-color: #25d366; transform: scale(1.05); }
+        .rank-card.selected { background: #d4edda; border-color: #25d366; border-width: 3px; }
+        .rank-card .rank-emoji { font-size: 32px; margin-bottom: 6px; }
+        .rank-card .rank-title { font-size: 13px; font-weight: bold; color: #333; }
+        .rank-card .rank-desc { font-size: 10px; color: #666; margin-top: 2px; }
+        .settings-section { margin: 16px 0; padding: 14px; background: #f8f9fa; border-radius: 10px; }
+        .settings-section h4 { font-size: 15px; margin-bottom: 10px; color: #075e54; }
+        .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+        .settings-row label { font-size: 14px; color: #333; }
+        .settings-row select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white; }
+        #iptvTab { display: none; flex-direction: column; height: 100%; background: #1a1a1a; }
+        #iptvPlayerArea { flex: 1; background: black; position: relative; display: flex; align-items: center; justify-content: center; min-height: 200px; }
+        #iptvVideo { width: 100%; height: 100%; object-fit: contain; display: none; background: black; }
+        #iptvPlaceholder { text-align: center; color: #666; padding: 20px; }
+        #iptvPlaceholder .icon { font-size: 56px; margin-bottom: 12px; }
+        #iptvLoading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; display: none; }
+        #iptvLoading.show { display: block; }
+        .iptv-spinner { border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid #25d366; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #iptvControls { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding: 10px; display: none; gap: 8px; }
+        #iptvControls.show { display: flex; }
+        #iptvControls button { background: rgba(255,255,255,0.15); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        #iptvControls .spacer { flex: 1; }
+        .iptv-controls { background: #2a2a2a; padding: 8px 10px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .iptv-controls input { flex: 1; padding: 10px; border: 1px solid #444; background: #1a1a1a; color: white; border-radius: 6px; font-size: 13px; direction: ltr; min-width: 0; }
+        .iptv-controls button { background: #25d366; color: white; border: none; padding: 10px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; flex-shrink: 0; }
+        .iptv-file-area { background: #2a2a2a; padding: 8px 10px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .iptv-file-area label { flex: 1; background: #075e54; color: white; padding: 10px; border-radius: 6px; text-align: center; cursor: pointer; font-size: 13px; }
+        .iptv-file-area input[type="file"] { display: none; }
+        .iptv-file-area button { background: #3498db; color: white; border: none; padding: 10px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .iptv-file-area button.danger { background: #e74c3c; }
+        .saved-playlist-badge { background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; font-size: 11px; margin: 0 10px; }
+        #iptvPlaylistOverlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 500; }
+        #iptvPlaylistOverlay.show { display: flex; flex-direction: column; }
+        #iptvPlaylistPanel { background: #222; margin: auto; width: 95%; max-width: 500px; max-height: 85vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+        .iptv-playlist-header { padding: 14px 16px; background: #075e54; display: flex; justify-content: space-between; align-items: center; }
+        .iptv-playlist-header h3 { font-size: 15px; color: white; }
+        .iptv-playlist-header button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+        #iptvChannelsList { overflow-y: auto; flex: 1; }
+        .iptv-channel-item { padding: 10px 14px; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .iptv-channel-item.active { background: #075e54; }
+        .iptv-channel-item .ch-icon { width: 36px; height: 36px; background: #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+        .iptv-channel-item .ch-info { flex: 1; min-width: 0; }
+        .iptv-channel-item .ch-name { font-size: 13px; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .iptv-channel-item .ch-group { font-size: 10px; color: #999; margin-top: 2px; }
+        .iptv-channel-item .ch-delete { background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-200px); background: #075e54; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 999; transition: transform 0.3s; max-width: 90%; }
+        #toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+<div id="toast"></div>
+<div id="loginScreen">
+    <h1>⭐ Starbox</h1>
+    <input type="text" id="username" placeholder="اسم المستخدم (بدون @starbox)" autocomplete="username">
+    <input type="password" id="password" placeholder="كلمة المرور" autocomplete="current-password">
+    <div id="rememberMe"><input type="checkbox" id="rememberCheckbox"><label for="rememberCheckbox">تذكرني</label></div>
+    <button onclick="login()">تسجيل الدخول</button>
+    <div id="loginError"></div>
+</div>
+<div id="mainScreen">
+    <div class="header">
+        <div><h2>⭐ Starbox</h2><div class="status" id="myStatus">غير متصل</div></div>
+        <div style="display:flex; gap:8px;">
+            <button onclick="showRequests()" id="requestsBtn" style="position:relative;">👥<span id="requestsBadge" class="badge" style="display:none; position:absolute; top:0; right:-6px;">0</span></button>
+            <button onclick="showAddFriend()">➕</button>
+            <button onclick="logout()">🚪</button>
+        </div>
+    </div>
+    <div class="tabs">
+        <div class="tab active" id="tabContacts" onclick="switchTab('contacts')">💬 المحادثات</div>
+        <div class="tab" id="tabGroups" onclick="switchTab('groups')">👥 الغرف</div>
+        <div class="tab" id="tabIptv" onclick="switchTab('iptv')">📺 IPTV</div>
+    </div>
+    <div id="contactList"><div id="loading">جاري تحميل جهات الاتصال...</div></div>
+    <div id="groupsList" style="display:none;">
+        <button class="btn-primary" style="margin:16px; width:calc(100% - 32px); background:#25d366;" onclick="showJoinGroup()">🚪 الانضمام لغرفة موجودة</button>
+        <button class="btn-primary" style="margin:0 16px 16px 16px; width:calc(100% - 32px); background:#3498db;" onclick="showDiscoverGroups()">🔍 استكشاف الغرف العامة</button>
+        <div id="groupsContent"></div>
+    </div>
+    <div id="iptvTab">
+        <div id="iptvPlayerArea">
+            <video id="iptvVideo" controls playsinline webkit-playsinline></video>
+            <div id="iptvPlaceholder"><div class="icon">📺</div><p>أدخل رابط M3U8 أو اختر ملف M3U</p></div>
+            <div id="iptvLoading"><div class="iptv-spinner"></div><p>جاري التحميل...</p></div>
+            <div id="iptvControls">
+                <button onclick="iptvToggleFullscreen()">⛶</button>
+                <button onclick="iptvToggleMute()" id="iptvMuteBtn">🔊</button>
+                <button onclick="iptvShowPlaylist()">📋</button>
+                <div class="spacer"></div>
+                <button onclick="iptvStopVideo()">⏹ إيقاف</button>
+            </div>
+        </div>
+        <div class="iptv-controls">
+            <input type="text" id="iptvUrlInput" placeholder="https://example.com/stream.m3u8" dir="ltr">
+            <button onclick="iptvPlayUrl()">▶</button>
+        </div>
+        <div class="iptv-file-area">
+            <label for="iptvM3uFile">📁 اختر ملف M3U</label>
+            <input type="file" id="iptvM3uFile" accept=".m3u,.m3u8,application/x-mpegURL,video/*" onchange="iptvLoadM3UFile(event)">
+            <button onclick="iptvShowPlaylist()" id="iptvPlaylistBtn" style="display:none;">📋</button>
+            <button onclick="iptvDeletePlaylist()" id="iptvDeleteBtn" class="danger" style="display:none;">🗑️</button>
+        </div>
+        <div id="iptvSavedInfo" style="display:none; padding: 8px; text-align: center;">
+            <span class="saved-playlist-badge">💾 محفوظة: <span id="savedCount">0</span> قناة</span>
+        </div>
+    </div>
+</div>
+<div id="chatScreen">
+    <div class="chat-header">
+        <button class="back-btn" onclick="closeChat()">←</button>
+        <div class="chat-info"><div class="chat-name" id="chatWithName">المحادثة</div></div>
+        <button class="clear-btn" onclick="clearCurrentChat()" title="حذف المحادثة">🗑️ مسح</button>
+    </div>
+    <div id="messagesArea"></div>
+    <div class="input-area">
+        <input type="text" id="messageInput" placeholder="اكتب رسالة...">
+        <button onclick="sendMessage()">➤</button>
+    </div>
+</div>
+<div id="groupChatScreen">
+    <div class="chat-header">
+        <button class="back-btn" onclick="closeGroupChat()">←</button>
+        <div class="chat-info">
+            <div class="chat-name" id="groupChatName">الغرفة</div>
+            <div class="chat-members" id="groupChatMembers"></div>
+        </div>
+        <button class="info-btn" onclick="showGroupInfo()">ℹ️</button>
+    </div>
+    <div id="groupVideoArea">
+        <video id="groupVideo" controls playsinline webkit-playsinline></video>
+        <div id="groupVideoControls">
+            <button onclick="groupVideoFullscreen()">⛶</button>
+            <button onclick="groupVideoMute()" id="groupMuteBtn">🔊</button>
+            <button onclick="closeGroupVideo()">✕</button>
+        </div>
+        <div id="groupVideoInfo">🎬 جاري البث</div>
+    </div>
+    <div id="groupMessagesArea"></div>
+    <div id="groupCinemaBar">
+        <div class="cinema-icon">🎬</div>
+        <div class="cinema-info">
+            <div class="cinema-label">بث نشط الآن</div>
+            <div class="cinema-name" id="cinemaBarName">قناة</div>
+        </div>
+        <button class="cinema-btn" id="cinemaBarBtn" onclick="cinemaBarAction()">▶ مشاهدة</button>
+    </div>
+    <div class="input-area">
+        <button class="cinema-btn" onclick="showShareCinema()" title="مشاركة فيديو">🎬</button>
+        <input type="text" id="groupMessageInput" placeholder="اكتب رسالة...">
+        <button onclick="sendGroupMessage()">➤</button>
+    </div>
+</div>
+<div id="iptvPlaylistOverlay" onclick="if(event.target===this)iptvClosePlaylist()">
+    <div id="iptvPlaylistPanel">
+        <div class="iptv-playlist-header"><h3 id="iptvPlaylistTitle">📋 القنوات</h3><button onclick="iptvClosePlaylist()">×</button></div>
+        <div id="iptvChannelsList"></div>
+    </div>
+</div>
+<div id="shareCinemaScreen" class="popup-screen">
+    <div class="popup-header"><button onclick="closeShareCinema()">←</button><h3>🎬 مشاركة فيديو مع الغرفة</h3></div>
+    <p style="color:#666; font-size:14px; margin-bottom:12px;">الصق رابط M3U8 أو رابط فيديو مباشر</p>
+    <input type="text" id="cinemaUrlInput" placeholder="https://example.com/stream.m3u8" dir="ltr">
+    <input type="text" id="cinemaNameInput" placeholder="اسم القناة (اختياري)">
+    <button class="btn-primary" onclick="shareCinemaToGroup()">📺 بث للغرفة</button>
+    <div id="cinemaMsg" style="margin-top:16px; text-align:center;"></div>
+</div>
+<div id="joinGroupScreen" class="popup-screen">
+    <div class="popup-header"><button onclick="closeJoinGroup()">←</button><h3>🚪 الانضمام لغرفة</h3></div>
+    <input type="text" id="joinGroupName" placeholder="اسم الغرفة (مثال: general)">
+    <button class="btn-primary" onclick="joinGroup()">انضمام</button>
+    <div id="joinGroupMsg" style="margin-top:16px; text-align:center;"></div>
+</div>
+<div id="discoverGroupsScreen" class="popup-screen">
+    <div class="popup-header"><button onclick="closeDiscoverGroups()">←</button><h3>🔍 الغرف العامة</h3></div>
+    <div id="discoverGroupsList"></div>
+</div>
+<div id="groupInfoScreen" class="popup-screen">
+    <div class="popup-header"><button onclick="closeGroupInfo()">←</button><h3>ℹ️ معلومات الغرفة</h3></div>
+    <div id="groupInfoContent"></div>
+</div>
+<div id="addFriendScreen" class="popup-screen">
+    <div class="popup-header"><button onclick="closeAddFriend()">←</button><h3>➕ إضافة صديق</h3></div>
+    <input type="text" id="friendUsername" placeholder="اسم المستخدم (مثال: sara)">
+    <input type="text" id="friendName" placeholder="الاسم المعروض (اختياري)">
+    <button class="btn-primary" onclick="addFriendDirect()">➕ إرسال طلب صداقة</button>
+    <div id="addFriendMsg" style="margin-top:16px; text-align:center;"></div>
+</div>
+<div id="requestsScreen">
+    <div class="popup-header"><button onclick="closeRequests()">←</button><h3>👥 طلبات الصداقة</h3></div>
+    <div id="requestsList"></div>
+</div>
+<div id="rankPickerScreen" class="popup-screen">
+    <div class="popup-header"><button onclick="closeRankPicker()">←</button><h3>⭐ اختيار الرتبة</h3></div>
+    <p style="color:#666; font-size:14px; margin-bottom:8px;">اختر رتبة لـ <b id="rankPickerUser">المستخدم</b></p>
+    <div class="ranks-grid" id="ranksGrid"></div>
+</div>
+
+<script>
+const SERVER_IP = '192.168.100.43';
+const XMPP_DOMAIN = 'starbox';
+const MUC_DOMAIN = 'conference.' + XMPP_DOMAIN;
+const BOSH_URL = `http://${SERVER_IP}:7070/http-bind/`;
+const CINEMA_PREFIX = '###STARBOX_CINEMA###';
+const STOP_CINEMA_PREFIX = '###STOP_CINEMA###';
+const RANK_PREFIX = '###RANK###';
+const CLEANUP_PREFIX = '###CLEANUP###';
+
+const RANKS = {
+    owner:      { emoji: '👑', title: 'مالك',    desc: 'مالك الغرفة',       affiliation: 'owner',  role: null,           official: true },
+    admin:      { emoji: '🛡️', title: 'مدير',    desc: 'مدير الغرفة',       affiliation: 'admin',  role: null,           official: true },
+    moderator:  { emoji: '⭐', title: 'مشرف',    desc: 'مشرف الغرفة',       affiliation: null,     role: 'moderator',    official: true },
+    member:     { emoji: '🦋', title: 'عضو',     desc: 'عضو عادي',          affiliation: 'member', role: 'participant',  official: true },
+    king:       { emoji: '🤴', title: 'ملك',     desc: 'ملك الغرفة',        affiliation: null,     role: null,           decorative: true },
+    prince:     { emoji: '👸', title: 'أميرة',   desc: 'أميرة الغرفة',      affiliation: null,     role: null,           decorative: true },
+    minister:   { emoji: '🎩', title: 'وزير',    desc: 'وزير',              affiliation: null,     role: null,           decorative: true },
+    commander:  { emoji: '🎖️', title: 'قائد',    desc: 'قائد',              affiliation: null,     role: null,           decorative: true },
+    watcher:    { emoji: '👁️', title: 'مراقب',   desc: 'مراقب',             affiliation: null,     role: null,           decorative: true },
+    vip:        { emoji: '💎', title: 'VIP',     desc: 'عضو مميز',          affiliation: null,     role: null,           decorative: true },
+    gold:       { emoji: '🏅', title: 'ذهبي',    desc: 'عضو ذهبي',          affiliation: null,     role: null,           decorative: true },
+    silver:     { emoji: '🥈', title: 'فضي',     desc: 'عضو فضي',           affiliation: null,     role: null,           decorative: true },
+    bronze:     { emoji: '🥉', title: 'برونزي',  desc: 'عضو برونزي',        affiliation: null,     role: null,           decorative: true },
+    star:       { emoji: '🌟', title: 'نجمة',    desc: 'عضو لامع',          affiliation: null,     role: null,           decorative: true },
+    fire:       { emoji: '🔥', title: 'نار',     desc: 'عضو متألق',         affiliation: null,     role: null,           decorative: true },
+    heart:      { emoji: '❤️', title: 'محبوب',   desc: 'عضو محبوب',         affiliation: null,     role: null,           decorative: true },
+    none:       { emoji: '⬇️', title: 'إزالة',   desc: 'إزالة الرتبة',      affiliation: null,     role: null,           decorative: true }
+};
+const CLEANUP_OPTIONS = {
+    'none': { label: 'لا حذف تلقائي', ms: 0 },
+    '15min': { label: 'كل 15 دقيقة', ms: 15 * 60 * 1000 },
+    '30min': { label: 'كل نصف ساعة', ms: 30 * 60 * 1000 },
+    '1hour': { label: 'كل ساعة', ms: 60 * 60 * 1000 },
+    '6hours': { label: 'كل 6 ساعات', ms: 6 * 60 * 60 * 1000 },
+    '1day': { label: 'كل 24 ساعة', ms: 24 * 60 * 60 * 1000 }
+};
+const MAX_MESSAGES_OPTIONS = [50, 100, 200, 500, 1000, 2000, 5000];
+
+let connection = null;
+let currentChatJid = null;
+let currentGroupJid = null;
+let contacts = {};
+let myJid = '';
+let pendingRequests = {};
+let unreadCounts = {};
+let groupUnreadCounts = {};
+let rosterInterval = null;
+let cleanupInterval = null;
+let chatCleanupInterval = null;
+let messageHistory = {};
+let groupHistory = {};
+let joinedGroups = {};
+let groupHls = null;
+let groupCurrentChannel = null;
+let groupCinemaStatus = {};
+let myRoleInRoom = {};
+let myAffiliationInRoom = {};
+let customRanks = {};
+let rankPickerTarget = null;
+let cleanupSettings = {};
+let chatCleanupSettings = {};
+let savedIptvChannels = [];
+let iptvCurrentChannels = [];
+let iptvHls = null;
+let iptvCurrentChannelIndex = -1;
+// ✅ منع تكرار الرسائل: تتبع msgId
+let processedMsgIds = new Set();
+
+function loadHistory() {
+    try {
+        const s = localStorage.getItem('starbox_history_' + myJid); if (s) messageHistory = JSON.parse(s);
+        const u = localStorage.getItem('starbox_unread_' + myJid); if (u) unreadCounts = JSON.parse(u);
+        const g = localStorage.getItem('starbox_groups_' + myJid); if (g) groupHistory = JSON.parse(g);
+        const gu = localStorage.getItem('starbox_groupunread_' + myJid); if (gu) groupUnreadCounts = JSON.parse(gu);
+        const cs = localStorage.getItem('starbox_cinema_' + myJid); if (cs) groupCinemaStatus = JSON.parse(cs);
+        const rr = localStorage.getItem('starbox_myrole_' + myJid); if (rr) myRoleInRoom = JSON.parse(rr);
+        const ra = localStorage.getItem('starbox_myaffil_' + myJid); if (ra) myAffiliationInRoom = JSON.parse(ra);
+        const cr = localStorage.getItem('starbox_customranks_' + myJid); if (cr) customRanks = JSON.parse(cr);
+        const cl = localStorage.getItem('starbox_cleanup_' + myJid); if (cl) cleanupSettings = JSON.parse(cl);
+        const cc = localStorage.getItem('starbox_chatcleanup_' + myJid); if (cc) chatCleanupSettings = JSON.parse(cc);
+        const iptv = localStorage.getItem('starbox_iptv_saved');
+        if (iptv) {
+            savedIptvChannels = JSON.parse(iptv);
+            iptvCurrentChannels = savedIptvChannels.slice();
+            setTimeout(() => {
+                if (savedIptvChannels.length > 0) iptvRenderChannelsList(savedIptvChannels, 'قنواتي المحفوظة');
+                updateIptvSavedUI();
+            }, 500);
+        }
+    } catch(e) {}
+}
+function saveHistory() {
+    try {
+        localStorage.setItem('starbox_history_' + myJid, JSON.stringify(messageHistory));
+        localStorage.setItem('starbox_unread_' + myJid, JSON.stringify(unreadCounts));
+        localStorage.setItem('starbox_groups_' + myJid, JSON.stringify(groupHistory));
+        localStorage.setItem('starbox_groupunread_' + myJid, JSON.stringify(groupUnreadCounts));
+        localStorage.setItem('starbox_cinema_' + myJid, JSON.stringify(groupCinemaStatus));
+        localStorage.setItem('starbox_myrole_' + myJid, JSON.stringify(myRoleInRoom));
+        localStorage.setItem('starbox_myaffil_' + myJid, JSON.stringify(myAffiliationInRoom));
+        localStorage.setItem('starbox_customranks_' + myJid, JSON.stringify(customRanks));
+        localStorage.setItem('starbox_cleanup_' + myJid, JSON.stringify(cleanupSettings));
+        localStorage.setItem('starbox_chatcleanup_' + myJid, JSON.stringify(chatCleanupSettings));
+    } catch(e) {}
+}
+function saveIptvChannels(channels) {
+    try {
+        savedIptvChannels = channels;
+        iptvCurrentChannels = channels.slice();
+        localStorage.setItem('starbox_iptv_saved', JSON.stringify(channels));
+        updateIptvSavedUI();
+    } catch(e) {}
+}
+function updateIptvSavedUI() {
+    const info = document.getElementById('iptvSavedInfo');
+    const delBtn = document.getElementById('iptvDeleteBtn');
+    const playBtn = document.getElementById('iptvPlaylistBtn');
+    if (savedIptvChannels.length > 0) {
+        info.style.display = 'block';
+        document.getElementById('savedCount').textContent = savedIptvChannels.length;
+        delBtn.style.display = 'block';
+        playBtn.style.display = 'block';
+    } else {
+        info.style.display = 'none';
+        delBtn.style.display = 'none';
+        playBtn.style.display = 'none';
+    }
+}
+function iptvDeletePlaylist() {
+    if (!confirm('حذف قائمة القنوات المحفوظة؟')) return;
+    savedIptvChannels = [];
+    iptvCurrentChannels = [];
+    localStorage.removeItem('starbox_iptv_saved');
+    updateIptvSavedUI();
+    document.getElementById('iptvChannelsList').innerHTML = '';
+    showToast('🗑️ تم حذف قائمة القنوات');
+}
+function login() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const remember = document.getElementById('rememberCheckbox').checked;
+    const errorDiv = document.getElementById('loginError');
+    if (!username || !password) { errorDiv.textContent = '⚠️ يرجى إدخال اسم المستخدم وكلمة المرور'; return; }
+    if (typeof Strophe === 'undefined') { errorDiv.textContent = '❌ ملف strophe.umd.min.js غير موجود'; return; }
+    if (remember) { localStorage.setItem('starbox_saved_user', username); localStorage.setItem('starbox_saved_pass', password); }
+    else { localStorage.removeItem('starbox_saved_user'); localStorage.removeItem('starbox_saved_pass'); }
+    errorDiv.textContent = '⏳ جاري الاتصال...';
+    myJid = username + '@' + XMPP_DOMAIN;
+    loadHistory();
+    connection = new Strophe.Connection(BOSH_URL);
+    // ✅ إصلاح: معالج واحد فقط لرسائل chat (لا تكرار)
+    connection.addHandler(onMessage, null, 'message', 'chat', null, null);
+    connection.addHandler(onPresence, null, 'presence', null, null, null);
+    connection.addHandler(onRosterPush, 'jabber:iq:roster', 'iq', 'set', null, null);
+    connection.addHandler(onGroupMessage, null, 'message', 'groupchat', null, null);
+    connection.addHandler(onGroupPresence, null, 'presence', null, MUC_DOMAIN, null);
+    connection.connect(myJid, password, onConnect);
+}
+window.addEventListener('DOMContentLoaded', () => {
+    const savedUser = localStorage.getItem('starbox_saved_user');
+    const savedPass = localStorage.getItem('starbox_saved_pass');
+    if (savedUser && savedPass) {
+        document.getElementById('username').value = savedUser;
+        document.getElementById('password').value = savedPass;
+        document.getElementById('rememberCheckbox').checked = true;
+    }
+    document.getElementById('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('password').focus(); } });
+    document.getElementById('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); login(); } });
+    document.getElementById('messageInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendMessage(); } });
+    document.getElementById('groupMessageInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendGroupMessage(); } });
+    document.getElementById('iptvUrlInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); iptvPlayUrl(); } });
+});
+function onConnect(status) {
+    const errorDiv = document.getElementById('loginError');
+    switch (status) {
+        case Strophe.Status.CONNECTING: errorDiv.textContent = '⏳ جاري الاتصال...'; break;
+        case Strophe.Status.CONNFAIL: errorDiv.textContent = '❌ فشل الاتصال'; break;
+        case Strophe.Status.AUTHENTICATING: errorDiv.textContent = '🔐 جاري التحقق...'; break;
+        case Strophe.Status.AUTHFAIL: errorDiv.textContent = '❌ بيانات دخول خاطئة'; break;
+        case Strophe.Status.CONNECTED:
+            errorDiv.textContent = '';
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainScreen').style.display = 'flex';
+            document.getElementById('myStatus').textContent = 'متصل';
+            connection.send($pres().tree());
+            requestRoster();
+            if (rosterInterval) clearInterval(rosterInterval);
+            rosterInterval = setInterval(() => requestRoster(), 15000);
+            if (cleanupInterval) clearInterval(cleanupInterval);
+            cleanupInterval = setInterval(runAutoCleanup, 60 * 1000);
+            if (chatCleanupInterval) clearInterval(chatCleanupInterval);
+            chatCleanupInterval = setInterval(runChatCleanup, 60 * 1000);
+            if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+            break;
+        case Strophe.Status.DISCONNECTED: errorDiv.textContent = '🔌 انقطع الاتصال'; if (rosterInterval) clearInterval(rosterInterval); if (cleanupInterval) clearInterval(cleanupInterval); if (chatCleanupInterval) clearInterval(chatCleanupInterval); break;
+        case Strophe.Status.ERROR: errorDiv.textContent = '⚠️ خطأ'; break;
+    }
+}
+function runAutoCleanup() {
+    Object.keys(groupHistory).forEach(roomJid => {
+        const settings = cleanupSettings[roomJid];
+        if (!settings) return;
+        let changed = false;
+        if (settings.interval && settings.interval !== 'none') {
+            const opt = CLEANUP_OPTIONS[settings.interval];
+            if (opt && opt.ms > 0) {
+                const cutoff = Date.now() - opt.ms;
+                const before = groupHistory[roomJid].length;
+                groupHistory[roomJid] = groupHistory[roomJid].filter(m => m.timestamp >= cutoff);
+                if (groupHistory[roomJid].length < before) changed = true;
+            }
+        }
+        if (settings.maxMessages && settings.maxMessages > 0) {
+            if (groupHistory[roomJid].length > settings.maxMessages) {
+                groupHistory[roomJid] = groupHistory[roomJid].slice(-settings.maxMessages);
+                changed = true;
+            }
+        }
+        if (changed) {
+            saveHistory();
+            if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+        }
+    });
+}
+function runChatCleanup() {
+    Object.keys(chatCleanupSettings).forEach(jid => {
+        const settings = chatCleanupSettings[jid];
+        if (!settings || settings.interval === 'none') return;
+        const opt = CLEANUP_OPTIONS[settings.interval];
+        if (opt && opt.ms > 0) {
+            const cutoff = Date.now() - opt.ms;
+            const before = (messageHistory[jid] || []).length;
+            if (before === 0) return;
+            messageHistory[jid] = messageHistory[jid].filter(m => m.timestamp >= cutoff);
+            if (messageHistory[jid].length < before) {
+                saveHistory();
+                if (currentChatJid === jid) renderHistory(jid);
+                updateContactUI(jid);
+            }
+        }
+    });
+}
+function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('contactList').style.display = 'none';
+    document.getElementById('groupsList').style.display = 'none';
+    document.getElementById('iptvTab').style.display = 'none';
+    if (tab === 'contacts') { document.getElementById('tabContacts').classList.add('active'); document.getElementById('contactList').style.display = 'block'; }
+    else if (tab === 'groups') { document.getElementById('tabGroups').classList.add('active'); document.getElementById('groupsList').style.display = 'block'; }
+    else if (tab === 'iptv') {
+        document.getElementById('tabIptv').classList.add('active');
+        document.getElementById('iptvTab').style.display = 'flex';
+        if (savedIptvChannels.length > 0 && iptvCurrentChannels.length === 0) {
+            iptvCurrentChannels = savedIptvChannels.slice();
+            iptvRenderChannelsList(savedIptvChannels, 'قنواتي المحفوظة');
+        }
+    }
+}
+function requestRoster() {
+    const iq = $iq({type: 'get'}).c('query', {xmlns: 'jabber:iq:roster'});
+    connection.sendIQ(iq, onRosterReceived, () => {});
+}
+function onRosterReceived(iq) {
+    const contactListDiv = document.getElementById('contactList');
+    contactListDiv.innerHTML = '';
+    contacts = {};
+    const items = iq.getElementsByTagName('item');
+    if (items.length === 0) { contactListDiv.innerHTML = '<div style="padding:40px;text-align:center;color:#999;">لا توجد جهات اتصال بعد.<br><br>اضغط على ➕ لإضافة صديق</div>'; return; }
+    for (let i = 0; i < items.length; i++) {
+        const jid = items[i].getAttribute('jid');
+        const name = items[i].getAttribute('name') || jid.split('@')[0];
+        const sub = items[i].getAttribute('subscription');
+        addContactToList(jid, name, sub);
+    }
+    connection.send($pres().tree());
+}
+function onRosterPush(iq) { setTimeout(requestRoster, 300); return true; }
+function addContactToList(jid, name, sub) {
+    const contactListDiv = document.getElementById('contactList');
+    const initial = name.charAt(0).toUpperCase();
+    const unread = unreadCounts[jid] || 0;
+    const lastMsg = getLastMessage(jid);
+    let previewText = '';
+    if (lastMsg) {
+        previewText = (lastMsg.direction === 'sent' ? 'أنت: ' : '') + (lastMsg.text || '');
+        if (previewText.length > 35) previewText = previewText.substring(0, 35) + '...';
+    } else {
+        previewText = sub === 'both' ? 'صديق' : 'بانتظار الموافقة';
+    }
+    contacts[jid] = { name: name, online: false, subscription: sub };
+    const div = document.createElement('div');
+    div.className = 'contact-item';
+    div.id = 'contact-' + jid.replace(/[.@]/g, '-');
+    div.innerHTML = `
+        <div class="contact-avatar">${initial}</div>
+        <div class="contact-info">
+            <div class="contact-name">${name}</div>
+            <div class="contact-status ${unread > 0 ? 'unread' : ''}">${previewText}</div>
+        </div>
+        ${unread > 0 ? `<div class="unread-badge">${unread}</div>` : ''}
+        <button class="contact-delete-btn" title="إزالة الصديق">✕</button>
+    `;
+    const delBtn = div.querySelector('.contact-delete-btn');
+    delBtn.onclick = (e) => { e.stopPropagation(); deleteFriend(jid, name); };
+    div.onclick = () => openChat(jid, name);
+    contactListDiv.appendChild(div);
+    contacts[jid]._el = div;
+}
+function deleteFriend(jid, name) {
+    if (!confirm('حذف الصديق "' + name + '" ومحادثته؟\nلا يمكن التراجع.')) return;
+    connection.send($pres({to: jid, type: 'unsubscribe'}).tree());
+    connection.send($pres({to: jid, type: 'unsubscribed'}).tree());
+    const iq = $iq({type: 'set'}).c('query', {xmlns: 'jabber:iq:roster'}).c('item', {jid: jid, subscription: 'remove'});
+    connection.sendIQ(iq, () => {
+        delete messageHistory[jid];
+        delete unreadCounts[jid];
+        delete chatCleanupSettings[jid];
+        saveHistory();
+        const el = document.getElementById('contact-' + jid.replace(/[.@]/g, '-'));
+        if (el) el.remove();
+        if (currentChatJid === jid) closeChat();
+        showToast('🗑️ تم حذف ' + name);
+        setTimeout(requestRoster, 500);
+    }, () => { showToast('❌ فشل حذف الصديق'); });
+}
+function onPresence(presence) {
+    const from = presence.getAttribute('from');
+    const type = presence.getAttribute('type');
+    const bareJid = from ? from.split('/')[0] : null;
+    if (!bareJid) return true;
+    if (bareJid.indexOf(MUC_DOMAIN) !== -1) return true;
+    if (type === 'subscribe') {
+        pendingRequests[bareJid] = bareJid.split('@')[0];
+        updateRequestsBadge();
+        showToast('📩 طلب صداقة من ' + pendingRequests[bareJid]);
+        playSound('notify');
+        return true;
+    }
+    if (type === 'subscribed') { showToast('✅ تم قبول طلب الصداقة'); setTimeout(requestRoster, 800); return true; }
+    if (type === 'unsubscribe' || type === 'unsubscribed') {
+        if (contacts[bareJid]) {
+            const name = contacts[bareJid].name;
+            delete messageHistory[bareJid];
+            delete unreadCounts[bareJid];
+            saveHistory();
+            const el = document.getElementById('contact-' + bareJid.replace(/[.@]/g, '-'));
+            if (el) el.remove();
+            if (currentChatJid === bareJid) closeChat();
+            showToast('🚫 ' + name + ' أزال الصداقة');
+        }
+        return true;
+    }
+    if (!type || type === 'unavailable') {
+        if (contacts[bareJid]) { contacts[bareJid].online = !type || type !== 'unavailable'; updateContactUI(bareJid); }
+    }
+    return true;
+}
+function onGroupPresence(presence) {
+    const from = presence.getAttribute('from');
+    const type = presence.getAttribute('type');
+    if (!from) return true;
+    const parts = from.split('/');
+    const roomJid = parts[0];
+    const nick = parts[1];
+    if (!joinedGroups[roomJid]) return true;
+    let role = 'participant';
+    let affiliation = 'member';
+    const xElements = presence.getElementsByTagName('x');
+    for (let i = 0; i < xElements.length; i++) {
+        if (xElements[i].getAttribute('xmlns') === 'http://jabber.org/protocol/muc#user') {
+            const items = xElements[i].getElementsByTagName('item');
+            if (items.length > 0) {
+                role = items[0].getAttribute('role') || role;
+                affiliation = items[0].getAttribute('affiliation') || affiliation;
+            }
+        }
+    }
+    if (nick === myJid.split('@')[0]) {
+        myRoleInRoom[roomJid] = role;
+        myAffiliationInRoom[roomJid] = affiliation;
+        saveHistory();
+        if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+    }
+    if (type === 'unavailable' || type === 'error') {
+        if (joinedGroups[roomJid].occupants[nick]) {
+            delete joinedGroups[roomJid].occupants[nick];
+            addSystemMessage(roomJid, `${nick} غادر الغرفة`);
+        }
+    } else {
+        if (!joinedGroups[roomJid].occupants[nick]) {
+            joinedGroups[roomJid].occupants[nick] = { nick, role, affiliation };
+            addSystemMessage(roomJid, `${nick} انضم إلى الغرفة`);
+        } else {
+            joinedGroups[roomJid].occupants[nick].role = role;
+            joinedGroups[roomJid].occupants[nick].affiliation = affiliation;
+        }
+    }
+    updateGroupMembersCount(roomJid);
+    renderGroupsList();
+    return true;
+}
+function joinRoomByJid(roomJid, name) {
+    if (joinedGroups[roomJid]) { openGroupChat(roomJid); return; }
+    joinedGroups[roomJid] = { name: name, occupants: {}, isOpen: false };
+    const nick = myJid.split('@')[0];
+    const pres = $pres({to: roomJid + '/' + nick}).c('x', {xmlns: 'http://jabber.org/protocol/muc'});
+    connection.send(pres.tree());
+    showToast('🚪 جاري الانضمام إلى ' + name);
+    setTimeout(() => { renderGroupsList(); openGroupChat(roomJid); }, 1000);
+}
+function openGroupChat(roomJid) {
+    if (!joinedGroups[roomJid]) return;
+    currentGroupJid = roomJid;
+    joinedGroups[roomJid].isOpen = true;
+    groupUnreadCounts[roomJid] = 0;
+    saveHistory();
+    document.getElementById('groupChatName').textContent = joinedGroups[roomJid].name;
+    updateGroupMembersCount(roomJid);
+    document.getElementById('groupChatScreen').style.display = 'flex';
+    renderGroupHistory(roomJid);
+    renderGroupsList();
+    updateCinemaBar(roomJid);
+    requestMyAffiliation(roomJid);
+    setTimeout(() => requestOccupants(roomJid), 800);
+    setTimeout(() => { document.getElementById('groupMessagesArea').scrollTop = 99999; document.getElementById('groupMessageInput').focus(); }, 100);
+}
+function requestOccupants(roomJid) {
+    const iq = $iq({type: 'get', to: roomJid}).c('query', {xmlns: 'http://jabber.org/protocol/disco#items'});
+    connection.sendIQ(iq, (result) => {
+        const items = result.getElementsByTagName('item');
+        for (let i = 0; i < items.length; i++) {
+            const jid = items[i].getAttribute('jid');
+            const nick = items[i].getAttribute('name') || (jid ? jid.split('/')[1] : 'مجهول');
+            if (nick && !joinedGroups[roomJid].occupants[nick]) {
+                joinedGroups[roomJid].occupants[nick] = { nick, role: 'participant', affiliation: 'member' };
+            }
+        }
+        updateGroupMembersCount(roomJid);
+        renderGroupsList();
+        if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+    }, () => {});
+}
+function requestMyAffiliation(roomJid) {
+    const iqOwner = $iq({type: 'get', to: roomJid}).c('query', {xmlns: 'http://jabber.org/protocol/muc#admin'}).c('item', {affiliation: 'owner'});
+    connection.sendIQ(iqOwner, (result) => {
+        const items = result.getElementsByTagName('item');
+        for (let i = 0; i < items.length; i++) {
+            const jid = items[i].getAttribute('jid');
+            if (jid && jid.split('/')[0] === myJid) {
+                myAffiliationInRoom[roomJid] = 'owner';
+                saveHistory();
+                if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+            }
+        }
+    }, () => {});
+    setTimeout(() => {
+        const iqAdmin = $iq({type: 'get', to: roomJid}).c('query', {xmlns: 'http://jabber.org/protocol/muc#admin'}).c('item', {affiliation: 'admin'});
+        connection.sendIQ(iqAdmin, (result) => {
+            const items = result.getElementsByTagName('item');
+            for (let i = 0; i < items.length; i++) {
+                const jid = items[i].getAttribute('jid');
+                if (jid && jid.split('/')[0] === myJid) {
+                    if (myAffiliationInRoom[roomJid] !== 'owner') {
+                        myAffiliationInRoom[roomJid] = 'admin';
+                        saveHistory();
+                        if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+                    }
+                }
+            }
+        }, () => {});
+    }, 500);
+    setTimeout(() => requestOccupants(roomJid), 1500);
+}
+function amIModerator(roomJid) {
+    const role = myRoleInRoom[roomJid];
+    const affil = myAffiliationInRoom[roomJid];
+    return role === 'moderator' || role === 'admin' || role === 'owner' || affil === 'admin' || affil === 'owner';
+}
+function getUserRank(roomJid, nick) {
+    if (customRanks[roomJid] && customRanks[roomJid][nick]) {
+        const customRank = customRanks[roomJid][nick];
+        if (RANKS[customRank]) return RANKS[customRank];
+    }
+    const occ = joinedGroups[roomJid]?.occupants[nick];
+    if (occ) {
+        if (occ.affiliation === 'owner') return RANKS.owner;
+        if (occ.affiliation === 'admin') return RANKS.admin;
+        if (occ.role === 'moderator') return RANKS.moderator;
+        if (occ.affiliation === 'member') return RANKS.member;
+    }
+    return RANKS.member;
+}
+function getRankEmoji(roomJid, nick) {
+    const rank = getUserRank(roomJid, nick);
+    return rank.emoji ? `<span class="rank-badge">${rank.emoji}</span>` : '';
+}
+function updateGroupMembersCount(roomJid) {
+    if (currentGroupJid === roomJid && joinedGroups[roomJid]) {
+        document.getElementById('groupChatMembers').textContent = Object.keys(joinedGroups[roomJid].occupants).length + ' عضو';
+    }
+}
+function closeGroupChat() {
+    if (currentGroupJid) joinedGroups[currentGroupJid].isOpen = false;
+    document.getElementById('groupChatScreen').style.display = 'none';
+    closeGroupVideo();
+    document.getElementById('groupCinemaBar').classList.remove('show');
+    currentGroupJid = null;
+    renderGroupsList();
+}
+function sendGroupMessage() {
+    const input = document.getElementById('groupMessageInput');
+    const text = input.value.trim();
+    if (!text || !currentGroupJid) return;
+    connection.send($msg({to: currentGroupJid, type: 'groupchat'}).c('body').t(text).tree());
+    input.value = '';
+    input.focus();
+}
+function updateCinemaBar(roomJid) {
+    const bar = document.getElementById('groupCinemaBar');
+    const status = groupCinemaStatus[roomJid];
+    if (status && status.url) {
+        bar.classList.add('show');
+        document.getElementById('cinemaBarName').textContent = status.name + ' — بواسطة ' + status.sender;
+        const btn = document.getElementById('cinemaBarBtn');
+        if (status.sender === myJid.split('@')[0]) { btn.textContent = '⏹ إيقاف البث'; btn.className = 'cinema-btn stop'; }
+        else { btn.textContent = '▶ مشاهدة'; btn.className = 'cinema-btn'; }
+    } else { bar.classList.remove('show'); }
+}
+function cinemaBarAction() {
+    if (!currentGroupJid) return;
+    const status = groupCinemaStatus[currentGroupJid];
+    if (!status) return;
+    if (status.sender === myJid.split('@')[0]) {
+        if (!confirm('هل تريد إيقاف البث للجميع؟')) return;
+        stopCinemaBroadcast();
+    } else { playGroupVideo(status.url, status.name); }
+}
+function stopCinemaBroadcast() {
+    if (!currentGroupJid) return;
+    connection.send($msg({to: currentGroupJid, type: 'groupchat'}).c('body').t(STOP_CINEMA_PREFIX).tree());
+    delete groupCinemaStatus[currentGroupJid];
+    saveHistory();
+    updateCinemaBar(currentGroupJid);
+    closeGroupVideo();
+    if (groupHistory[currentGroupJid]) {
+        groupHistory[currentGroupJid] = groupHistory[currentGroupJid].filter(m => !m.cinema);
+        saveHistory();
+        renderGroupHistory(currentGroupJid);
+    }
+    showToast('⏹ تم إيقاف البث');
+}
+function showShareCinema() {
+    document.getElementById('shareCinemaScreen').style.display = 'block';
+    document.getElementById('cinemaUrlInput').value = '';
+    document.getElementById('cinemaNameInput').value = '';
+    document.getElementById('cinemaMsg').innerHTML = '';
+}
+function closeShareCinema() { document.getElementById('shareCinemaScreen').style.display = 'none'; }
+function shareCinemaToGroup() {
+    const url = document.getElementById('cinemaUrlInput').value.trim();
+    const name = document.getElementById('cinemaNameInput').value.trim() || 'قناة';
+    const msgDiv = document.getElementById('cinemaMsg');
+    if (!url) { msgDiv.innerHTML = '<span style="color:#c00;">⚠️ أدخل الرابط</span>'; return; }
+    if (!currentGroupJid) { msgDiv.innerHTML = '<span style="color:#c00;">⚠️ لست في غرفة</span>'; return; }
+    const sender = myJid.split('@')[0];
+    const cinemaData = JSON.stringify({ type: 'cinema', url: url, name: name, sender: sender });
+    const msg = $msg({to: currentGroupJid, type: 'groupchat'}).c('body').t(CINEMA_PREFIX + cinemaData);
+    connection.send(msg.tree());
+    if (groupHistory[currentGroupJid]) { groupHistory[currentGroupJid] = groupHistory[currentGroupJid].filter(m => !m.cinema); }
+    groupCinemaStatus[currentGroupJid] = { url: url, name: name, sender: sender };
+    saveHistory();
+    msgDiv.innerHTML = '<span style="color:#25d366;">✅ تم إرسال البث</span>';
+    setTimeout(() => { closeShareCinema(); updateCinemaBar(currentGroupJid); }, 1000);
+}
+function playGroupVideo(url, name) {
+    const area = document.getElementById('groupVideoArea');
+    const video = document.getElementById('groupVideo');
+    area.classList.add('show');
+    document.getElementById('groupVideoInfo').textContent = '🎬 ' + name;
+    if (groupHls) { groupHls.destroy(); groupHls = null; }
+    video.pause(); video.removeAttribute('src'); video.load();
+    groupCurrentChannel = { url, name };
+    showToast('⏳ جاري تشغيل: ' + name);
+    if (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('m3u8')) {
+        if (Hls.isSupported()) {
+            groupHls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 10, maxBufferLength: 10, liveSyncDurationCount: 2 });
+            groupHls.loadSource(url); groupHls.attachMedia(video);
+            groupHls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(e => console.log(e)); showToast('▶ ' + name); });
+            groupHls.on(Hls.Events.ERROR, (e, data) => { if (data.fatal) { if (data.type === Hls.ErrorTypes.NETWORK_ERROR) showToast('❌ خطأ شبكة'); else showToast('❌ فشل التشغيل'); } });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) { video.src = url; video.play().catch(e => console.log(e)); }
+    } else { video.src = url; video.play().catch(e => console.log(e)); }
+}
+function closeGroupVideo() {
+    const area = document.getElementById('groupVideoArea');
+    const video = document.getElementById('groupVideo');
+    if (groupHls) { groupHls.destroy(); groupHls = null; }
+    video.pause(); video.removeAttribute('src'); video.load();
+    area.classList.remove('show');
+    groupCurrentChannel = null;
+}
+function groupVideoFullscreen() {
+    const area = document.getElementById('groupVideoArea');
+    if (!document.fullscreenElement) { if (area.requestFullscreen) area.requestFullscreen(); else if (area.webkitRequestFullscreen) area.webkitRequestFullscreen(); }
+    else { if (document.exitFullscreen) document.exitFullscreen(); }
+}
+function groupVideoMute() {
+    const video = document.getElementById('groupVideo');
+    video.muted = !video.muted;
+    document.getElementById('groupMuteBtn').textContent = video.muted ? '🔇' : '🔊';
+}
+function onGroupMessage(message) {
+    const type = message.getAttribute('type');
+    if (type !== 'groupchat') return true;
+    // ✅ منع التكرار
+    const msgId = message.getAttribute('id') || '';
+    if (msgId && processedMsgIds.has(msgId)) return true;
+    if (msgId) processedMsgIds.add(msgId);
+    
+    const from = message.getAttribute('from');
+    const body = message.getElementsByTagName('body')[0];
+    if (!body || !from) return true;
+    const parts = from.split('/');
+    const roomJid = parts[0];
+    const senderNick = parts[1] || 'مجهول';
+    const text = body.textContent;
+    const isMine = senderNick === myJid.split('@')[0];
+    
+    if (text.indexOf(RANK_PREFIX) === 0) {
+        try {
+            const rankData = JSON.parse(text.substring(RANK_PREFIX.length));
+            if (!customRanks[roomJid]) customRanks[roomJid] = {};
+            if (rankData.rank === 'none') { delete customRanks[roomJid][rankData.nick]; }
+            else { customRanks[roomJid][rankData.nick] = rankData.rank; }
+            saveHistory();
+            if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+            return true;
+        } catch(e) {}
+    }
+    if (text.indexOf(CLEANUP_PREFIX) === 0) {
+        try {
+            const cleanupData = JSON.parse(text.substring(CLEANUP_PREFIX.length));
+            cleanupSettings[roomJid] = cleanupData;
+            saveHistory();
+            if (currentGroupJid === roomJid) showGroupInfo();
+            return true;
+        } catch(e) {}
+    }
+    if (text === STOP_CINEMA_PREFIX) {
+        delete groupCinemaStatus[roomJid];
+        saveHistory();
+        if (groupHistory[roomJid]) { groupHistory[roomJid] = groupHistory[roomJid].filter(m => !m.cinema); }
+        if (currentGroupJid === roomJid) { updateCinemaBar(roomJid); closeGroupVideo(); addSystemMessage(roomJid, `${senderNick} أوقف البث`); renderGroupHistory(roomJid); }
+        else { showToast('⏹ ' + senderNick + ' أوقف البث'); }
+        renderGroupsList();
+        return true;
+    }
+    if (text.indexOf(CINEMA_PREFIX) === 0) {
+        try {
+            const jsonStr = text.substring(CINEMA_PREFIX.length);
+            const data = JSON.parse(jsonStr);
+            if (groupHistory[roomJid]) { groupHistory[roomJid] = groupHistory[roomJid].filter(m => !m.cinema); }
+            groupCinemaStatus[roomJid] = { url: data.url, name: data.name, sender: senderNick };
+            saveHistory();
+            saveCinemaMessage(roomJid, data, senderNick);
+            if (currentGroupJid === roomJid) { updateCinemaBar(roomJid); renderGroupHistory(roomJid); setTimeout(() => { document.getElementById('groupMessagesArea').scrollTop = 99999; }, 50); }
+            else { groupUnreadCounts[roomJid] = (groupUnreadCounts[roomJid] || 0) + 1; saveHistory(); playSound('message'); showToast('🎬 بث جديد في ' + (joinedGroups[roomJid]?.name || roomJid)); }
+            renderGroupsList();
+            return true;
+        } catch(e) {}
+    }
+    saveGroupMessage(roomJid, text, senderNick, isMine, msgId);
+    if (currentGroupJid === roomJid) { renderGroupHistory(roomJid); setTimeout(() => { document.getElementById('groupMessagesArea').scrollTop = 99999; }, 50); }
+    else { groupUnreadCounts[roomJid] = (groupUnreadCounts[roomJid] || 0) + 1; saveHistory(); playSound('message'); showToast('👥 ' + senderNick + ': ' + text.substring(0, 25)); }
+    renderGroupsList();
+    return true;
+}
+function saveGroupMessage(roomJid, text, sender, isMine, msgId) {
+    if (!groupHistory[roomJid]) groupHistory[roomJid] = [];
+    const time = new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'});
+    groupHistory[roomJid].push({ text, sender, isMine, time, timestamp: Date.now(), system: false, msgId: msgId });
+    const settings = cleanupSettings[roomJid];
+    if (settings && settings.maxMessages && groupHistory[roomJid].length > settings.maxMessages) {
+        groupHistory[roomJid] = groupHistory[roomJid].slice(-settings.maxMessages);
+    }
+    saveHistory();
+}
+function saveCinemaMessage(roomJid, data, sender) {
+    if (!groupHistory[roomJid]) groupHistory[roomJid] = [];
+    const time = new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'});
+    groupHistory[roomJid].push({ cinema: true, url: data.url, name: data.name, sender: sender, time: time, timestamp: Date.now() });
+    if (groupHistory[roomJid].length > 500) groupHistory[roomJid] = groupHistory[roomJid].slice(-500);
+    saveHistory();
+}
+function addSystemMessage(roomJid, text) {
+    if (!groupHistory[roomJid]) groupHistory[roomJid] = [];
+    const time = new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'});
+    groupHistory[roomJid].push({ text, system: true, time, timestamp: Date.now() });
+    saveHistory();
+    if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+}
+function renderGroupHistory(roomJid) {
+    const area = document.getElementById('groupMessagesArea');
+    area.innerHTML = '';
+    const history = groupHistory[roomJid] || [];
+    const isMod = amIModerator(roomJid);
+    if (history.length === 0) { area.innerHTML = '<div style="text-align:center; color:#999; padding:20px; font-size:13px;">لا توجد رسائل بعد</div>'; return; }
+    history.forEach((msg, idx) => {
+        const div = document.createElement('div');
+        if (msg.cinema) {
+            const isMine = msg.sender === myJid.split('@')[0];
+            const stillActive = groupCinemaStatus[roomJid] && groupCinemaStatus[roomJid].url === msg.url;
+            div.className = 'message cinema';
+            div.innerHTML = `
+                <div>🎬 <b>${escapeHtml(msg.sender)}</b> يبث: <b>${escapeHtml(msg.name)}</b></div>
+                <button class="cinema-watch-btn" data-url="${escapeHtml(msg.url)}" data-name="${escapeHtml(msg.name)}">▶ مشاهدة</button>
+                ${isMine && stillActive ? `<button class="cinema-stop-btn" style="background:#e74c3c; margin-right:6px;">⏹ إيقاف</button>` : ''}
+                <div class="time" style="color:#ccc;">${msg.time}</div>
+            `;
+        } else if (msg.system) { div.className = 'message system'; div.textContent = msg.text; }
+        else {
+            div.className = 'message ' + (msg.isMine ? 'sent' : 'received');
+            const rankEmoji = getRankEmoji(roomJid, msg.sender);
+            if (!msg.isMine && isMod) {
+                div.innerHTML = `<button class="delete-msg-btn" data-idx="${idx}" title="حذف" style="position:absolute;top:4px;left:-28px;background:rgba(231,76,60,0.8);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer;">✕</button><div class="sender-name">${rankEmoji}${escapeHtml(msg.sender)}</div>${escapeHtml(msg.text)}<div class="time">${msg.time}</div>`;
+            } else if (!msg.isMine) {
+                div.innerHTML = `<div class="sender-name">${rankEmoji}${escapeHtml(msg.sender)}</div>${escapeHtml(msg.text)}<div class="time">${msg.time}</div>`;
+            } else {
+                div.innerHTML = `${escapeHtml(msg.text)}<div class="time">${msg.time}</div>`;
+            }
+        }
+        area.appendChild(div);
+    });
+    document.querySelectorAll('.cinema-watch-btn').forEach(btn => { btn.onclick = function() { playGroupVideo(this.getAttribute('data-url'), this.getAttribute('data-name')); }; });
+    document.querySelectorAll('.cinema-stop-btn').forEach(btn => { btn.onclick = function() { if (confirm('إيقاف البث للجميع؟')) stopCinemaBroadcast(); }; });
+    document.querySelectorAll('.delete-msg-btn').forEach(btn => { btn.onclick = function(e) { e.stopPropagation(); const idx = parseInt(this.getAttribute('data-idx')); if (confirm('حذف الرسالة؟')) deleteGroupMessage(roomJid, idx); }; });
+}
+function deleteGroupMessage(roomJid, idx) {
+    if (!groupHistory[roomJid]) return;
+    groupHistory[roomJid].splice(idx, 1);
+    saveHistory();
+    renderGroupHistory(roomJid);
+    showToast('🗑️ تم حذف الرسالة');
+}
+function renderGroupsList() {
+    const content = document.getElementById('groupsContent');
+    content.innerHTML = '';
+    const keys = Object.keys(joinedGroups);
+    if (keys.length === 0) { content.innerHTML = '<div style="padding:30px; text-align:center; color:#999;">لا توجد غرف منضم إليها بعد</div>'; return; }
+    keys.forEach(roomJid => {
+        const group = joinedGroups[roomJid];
+        const unread = groupUnreadCounts[roomJid] || 0;
+        const memberCount = Object.keys(group.occupants).length;
+        const hasCinema = groupCinemaStatus[roomJid] && groupCinemaStatus[roomJid].url;
+        const rankEmoji = getRankEmoji(roomJid, myJid.split('@')[0]);
+        const div = document.createElement('div');
+        div.className = 'contact-item';
+        div.innerHTML = `
+            <div class="contact-avatar group">👥</div>
+            <div class="contact-info">
+                <div class="contact-name">${rankEmoji}${group.name} ${hasCinema ? '🎬' : ''}</div>
+                <div class="contact-status ${unread > 0 ? 'unread' : ''}">${memberCount} عضو${hasCinema ? ' • بث نشط' : ''}</div>
+            </div>
+            ${unread > 0 ? `<div class="unread-badge">${unread}</div>` : ''}
+        `;
+        div.onclick = () => openGroupChat(roomJid);
+        content.appendChild(div);
+    });
+}
+function showJoinGroup() {
+    document.getElementById('joinGroupScreen').style.display = 'block';
+    document.getElementById('joinGroupName').value = '';
+    document.getElementById('joinGroupMsg').innerHTML = '';
+}
+function closeJoinGroup() { document.getElementById('joinGroupScreen').style.display = 'none'; }
+function joinGroup() {
+    const name = document.getElementById('joinGroupName').value.trim().toLowerCase();
+    const msgDiv = document.getElementById('joinGroupMsg');
+    if (!name) { msgDiv.innerHTML = '<span style="color:#c00;">⚠️ اكتب اسم الغرفة</span>'; return; }
+    const roomJid = name + '@' + MUC_DOMAIN;
+    msgDiv.innerHTML = '<span style="color:#666;">⏳ جاري الانضمام...</span>';
+    setTimeout(() => { closeJoinGroup(); joinRoomByJid(roomJid, name); }, 500);
+}
+function showDiscoverGroups() {
+    document.getElementById('discoverGroupsScreen').style.display = 'block';
+    const list = document.getElementById('discoverGroupsList');
+    list.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">⏳ جاري البحث...</div>';
+    const iq = $iq({type: 'get', to: MUC_DOMAIN}).c('query', {xmlns: 'http://jabber.org/protocol/disco#items'});
+    connection.sendIQ(iq, (result) => {
+        const items = result.getElementsByTagName('item');
+        list.innerHTML = '';
+        if (items.length === 0) { list.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">لا توجد غرف عامة</div>'; return; }
+        for (let i = 0; i < items.length; i++) {
+            const jid = items[i].getAttribute('jid');
+            const name = items[i].getAttribute('name') || jid.split('@')[0];
+            const div = document.createElement('div');
+            div.className = 'contact-item';
+            div.innerHTML = `
+                <div class="contact-avatar group">👥</div>
+                <div class="contact-info">
+                    <div class="contact-name">${name}</div>
+                    <div class="contact-status">${jid}</div>
+                </div>
+                <button class="btn-accept" onclick="joinDiscoveredRoom('${jid}', '${name}')">انضمام</button>
+            `;
+            list.appendChild(div);
+        }
+    }, () => { list.innerHTML = '<div style="text-align:center; color:#c00; padding:20px;">❌ تعذّر</div>'; });
+}
+function closeDiscoverGroups() { document.getElementById('discoverGroupsScreen').style.display = 'none'; }
+function joinDiscoveredRoom(jid, name) { closeDiscoverGroups(); joinRoomByJid(jid, name); }
+function showGroupInfo() {
+    if (!currentGroupJid) return;
+    const group = joinedGroups[currentGroupJid];
+    const content = document.getElementById('groupInfoContent');
+    const amMod = amIModerator(currentGroupJid);
+    const myRank = getUserRank(currentGroupJid, myJid.split('@')[0]);
+    const settings = cleanupSettings[currentGroupJid] || { interval: 'none', maxMessages: 500 };
+    let intervalOptions = '';
+    Object.keys(CLEANUP_OPTIONS).forEach(key => {
+        const opt = CLEANUP_OPTIONS[key];
+        const selected = settings.interval === key ? ' selected' : '';
+        intervalOptions += `<option value="${key}"${selected}>${opt.label}</option>`;
+    });
+    let maxOptions = '';
+    MAX_MESSAGES_OPTIONS.forEach(n => {
+        const selected = settings.maxMessages === n ? ' selected' : '';
+        maxOptions += `<option value="${n}"${selected}>${n} رسالة</option>`;
+    });
+    content.innerHTML = `
+        <div style="text-align:center; padding:20px 0;">
+            <div class="contact-avatar group" style="width:80px; height:80px; margin:0 auto; font-size:32px;">👥</div>
+            <h3 style="margin-top:12px;">${group.name}</h3>
+            <p style="color:#666; font-size:13px;">${currentGroupJid}</p>
+            <p style="color:${amMod ? '#e74c3c' : '#666'}; font-weight:bold; margin-top:8px;">${myRank.emoji} ${myRank.title}</p>
+            <button class="btn-primary" style="margin-top:10px; background:#3498db;" onclick="requestMyAffiliation('${currentGroupJid}'); setTimeout(()=>showGroupInfo(), 2000);">🔄 إعادة فحص الصلاحيات</button>
+        </div>
+        ${amMod ? `
+        <div class="settings-section">
+            <h4>⚙️ إعدادات الحذف التلقائي</h4>
+            <div class="settings-row">
+                <label>⏱️ حذف كل:</label>
+                <select id="cleanupInterval" onchange="updateCleanupSetting('interval', this.value)">${intervalOptions}</select>
+            </div>
+            <div class="settings-row">
+                <label>📊 حد أقصى للرسائل:</label>
+                <select id="cleanupMax" onchange="updateCleanupSetting('maxMessages', parseInt(this.value))">${maxOptions}</select>
+            </div>
+            <button class="btn-primary" style="background:#e74c3c; margin-top:10px;" onclick="cleanNow()">🧹 حذف الآن</button>
+        </div>
+        ` : ''}
+        <h4 style="margin:16px 0 8px;">الأعضاء (${Object.keys(group.occupants).length})</h4>
+        <div id="membersList"></div>
+        <button class="btn-danger" style="margin-top:20px;" onclick="leaveRoom()">🚪 مغادرة الغرفة</button>
+    `;
+    const membersList = document.getElementById('membersList');
+    Object.values(group.occupants).forEach(occ => {
+        const div = document.createElement('div');
+        div.className = 'member-item';
+        const isMe = occ.nick === myJid.split('@')[0];
+        const rank = getUserRank(currentGroupJid, occ.nick);
+        let actions = '';
+        if (amMod && !isMe && occ.affiliation !== 'owner') {
+            actions = `
+                <button class="action-btn promote" title="تغيير الرتبة" data-nick="${escapeHtml(occ.nick)}">⭐</button>
+                <button class="action-btn kick" title="طرد" data-nick="${escapeHtml(occ.nick)}">🚪</button>
+                <button class="action-btn ban" title="حظر" data-nick="${escapeHtml(occ.nick)}">🚫</button>
+            `;
+        }
+        div.innerHTML = `
+            <div class="contact-avatar">${occ.nick.charAt(0).toUpperCase()}</div>
+            <div class="member-info">
+                <div class="member-name">${rank.emoji} ${occ.nick}${isMe ? ' (أنت)' : ''}</div>
+                <div class="member-role">${rank.title}</div>
+            </div>
+            <div class="member-actions">${actions}</div>
+        `;
+        membersList.appendChild(div);
+    });
+    membersList.querySelectorAll('.action-btn.kick').forEach(btn => { btn.onclick = function() { const nick = this.getAttribute('data-nick'); if (confirm('طرد ' + nick + '؟')) kickUser(currentGroupJid, nick); }; });
+    membersList.querySelectorAll('.action-btn.ban').forEach(btn => { btn.onclick = function() { const nick = this.getAttribute('data-nick'); if (confirm('حظر ' + nick + '؟')) banUser(currentGroupJid, nick); }; });
+    membersList.querySelectorAll('.action-btn.promote').forEach(btn => { btn.onclick = function() { const nick = this.getAttribute('data-nick'); openRankPicker(nick); }; });
+    document.getElementById('groupInfoScreen').style.display = 'block';
+}
+function closeGroupInfo() { document.getElementById('groupInfoScreen').style.display = 'none'; }
+function updateCleanupSetting(key, value) {
+    if (!currentGroupJid) return;
+    if (!cleanupSettings[currentGroupJid]) cleanupSettings[currentGroupJid] = { interval: 'none', maxMessages: 500 };
+    cleanupSettings[currentGroupJid][key] = value;
+    saveHistory();
+    const msg = $msg({to: currentGroupJid, type: 'groupchat'}).c('body').t(CLEANUP_PREFIX + JSON.stringify(cleanupSettings[currentGroupJid]));
+    connection.send(msg.tree());
+    showToast('✅ تم الحفظ');
+}
+function cleanNow() {
+    if (!currentGroupJid) return;
+    const settings = cleanupSettings[currentGroupJid];
+    if (!settings) return;
+    const before = groupHistory[currentGroupJid]?.length || 0;
+    if (settings.interval && settings.interval !== 'none') {
+        const opt = CLEANUP_OPTIONS[settings.interval];
+        if (opt && opt.ms > 0) {
+            const cutoff = Date.now() - opt.ms;
+            groupHistory[currentGroupJid] = groupHistory[currentGroupJid].filter(m => m.timestamp >= cutoff);
+        }
+    }
+    if (settings.maxMessages && groupHistory[currentGroupJid].length > settings.maxMessages) {
+        groupHistory[currentGroupJid] = groupHistory[currentGroupJid].slice(-settings.maxMessages);
+    }
+    const deleted = before - groupHistory[currentGroupJid].length;
+    saveHistory();
+    renderGroupHistory(currentGroupJid);
+    showToast(`🧹 تم حذف ${deleted} رسالة`);
+}
+function leaveRoom() {
+    if (!currentGroupJid) return;
+    if (!confirm('مغادرة الغرفة؟')) return;
+    connection.send($pres({to: currentGroupJid + '/' + myJid.split('@')[0], type: 'unavailable'}).tree());
+    delete joinedGroups[currentGroupJid];
+    delete myRoleInRoom[currentGroupJid];
+    delete myAffiliationInRoom[currentGroupJid];
+    saveHistory();
+    closeGroupInfo();
+    closeGroupChat();
+    renderGroupsList();
+}
+function openRankPicker(nick) {
+    rankPickerTarget = { nick, roomJid: currentGroupJid };
+    document.getElementById('rankPickerUser').textContent = nick;
+    const grid = document.getElementById('ranksGrid');
+    grid.innerHTML = '';
+    Object.keys(RANKS).forEach(key => {
+        const r = RANKS[key];
+        const currentRank = customRanks[currentGroupJid]?.[nick];
+        const isSelected = currentRank === key;
+        const card = document.createElement('div');
+        card.className = 'rank-card' + (isSelected ? ' selected' : '');
+        card.innerHTML = `
+            <div class="rank-emoji">${r.emoji}</div>
+            <div class="rank-title">${r.title}</div>
+            <div class="rank-desc">${r.desc}</div>
+        `;
+        card.onclick = () => assignRank(key);
+        grid.appendChild(card);
+    });
+    document.getElementById('rankPickerScreen').style.display = 'block';
+}
+function closeRankPicker() { document.getElementById('rankPickerScreen').style.display = 'none'; rankPickerTarget = null; }
+function assignRank(rank) {
+    if (!rankPickerTarget) return;
+    const { nick, roomJid } = rankPickerTarget;
+    const rankInfo = RANKS[rank];
+    if (rank === 'none') {
+        if (customRanks[roomJid]) delete customRanks[roomJid][nick];
+        saveHistory();
+        const msg = $msg({to: roomJid, type: 'groupchat'}).c('body').t(RANK_PREFIX + JSON.stringify({ nick, rank: 'none' }));
+        connection.send(msg.tree());
+        showToast('⬇️ تم إزالة الرتبة');
+        closeRankPicker();
+        if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+        setTimeout(() => showGroupInfo(), 500);
+        return;
+    }
+    if (!customRanks[roomJid]) customRanks[roomJid] = {};
+    customRanks[roomJid][nick] = rank;
+    saveHistory();
+    const msg = $msg({to: roomJid, type: 'groupchat'}).c('body').t(RANK_PREFIX + JSON.stringify({ nick, rank }));
+    connection.send(msg.tree());
+    if (rankInfo.affiliation) {
+        const iq = $iq({type: 'set', to: roomJid}).c('query', {xmlns: 'http://jabber.org/protocol/muc#admin'}).c('item', {nick: nick, affiliation: rankInfo.affiliation});
+        connection.sendIQ(iq, () => {}, () => {});
+    }
+    if (rankInfo.role) {
+        setTimeout(() => {
+            const iq2 = $iq({type: 'set', to: roomJid}).c('query', {xmlns: 'http://jabber.org/protocol/muc#admin'}).c('item', {nick: nick, role: rankInfo.role});
+            connection.sendIQ(iq2, () => {}, () => {});
+        }, 300);
+    }
+    showToast(rankInfo.emoji + ' تم تعيين ' + rankInfo.title);
+    closeRankPicker();
+    if (currentGroupJid === roomJid) renderGroupHistory(roomJid);
+    setTimeout(() => showGroupInfo(), 500);
+}
+function kickUser(roomJid, nick) {
+    const iq = $iq({type: 'set', to: roomJid}).c('query', {xmlns: 'http://jabber.org/protocol/muc#admin'}).c('item', {nick: nick, role: 'none'});
+    connection.sendIQ(iq, () => { showToast('🚪 تم طرد ' + nick); }, () => { showToast('❌ فشل الطرد'); });
+}
+function banUser(roomJid, nick) {
+    const iq = $iq({type: 'set', to: roomJid}).c('query', {xmlns: 'http://jabber.org/protocol/muc#admin'}).c('item', {nick: nick, affiliation: 'outcast'});
+    connection.sendIQ(iq, () => { showToast('🚫 تم حظر ' + nick); }, () => { showToast('❌ فشل الحظر'); });
+}
+function openChat(jid, name) {
+    currentChatJid = jid;
+    document.getElementById('chatWithName').textContent = name;
+    document.getElementById('chatScreen').style.display = 'flex';
+    unreadCounts[jid] = 0;
+    saveHistory();
+    renderHistory(jid);
+    updateContactUI(jid);
+    setTimeout(() => { document.getElementById('messagesArea').scrollTop = 99999; document.getElementById('messageInput').focus(); }, 100);
+}
+function closeChat() { document.getElementById('chatScreen').style.display = 'none'; currentChatJid = null; requestRoster(); }
+function clearCurrentChat() {
+    if (!currentChatJid) return;
+    if (!confirm('حذف كل رسائل هذه المحادثة؟\nسيتم إخفاؤها عندك فقط.')) return;
+    delete messageHistory[currentChatJid];
+    unreadCounts[currentChatJid] = 0;
+    saveHistory();
+    renderHistory(currentChatJid);
+    updateContactUI(currentChatJid);
+    showToast('🗑️ تم حذف المحادثة');
+}
+function renderHistory(jid) {
+    const area = document.getElementById('messagesArea');
+    area.innerHTML = '';
+    const history = messageHistory[jid] || [];
+    const settings = chatCleanupSettings[jid] || { interval: 'none' };
+    const intervalOptions = `
+        <option value="none"${settings.interval === 'none' ? ' selected' : ''}>لا حذف تلقائي</option>
+        <option value="15min"${settings.interval === '15min' ? ' selected' : ''}>كل 15 دقيقة</option>
+        <option value="30min"${settings.interval === '30min' ? ' selected' : ''}>كل نصف ساعة</option>
+        <option value="1hour"${settings.interval === '1hour' ? ' selected' : ''}>كل ساعة</option>
+        <option value="6hours"${settings.interval === '6hours' ? ' selected' : ''}>كل 6 ساعات</option>
+        <option value="1day"${settings.interval === '1day' ? ' selected' : ''}>كل 24 ساعة</option>
+    `;
+    const settingsBar = document.createElement('div');
+    settingsBar.style.cssText = 'background: #f8f9fa; padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;';
+    settingsBar.innerHTML = `
+        <span>⏱️ حذف تلقائي:</span>
+        <select onchange="updateChatCleanup('${jid}', this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;">
+            ${intervalOptions}
+        </select>
+    `;
+    area.appendChild(settingsBar);
+    if (history.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'text-align:center; color:#999; padding:20px; font-size:13px;';
+        empty.textContent = 'لا توجد رسائل سابقة';
+        area.appendChild(empty);
+        return;
+    }
+    history.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'message ' + msg.direction;
+        div.innerHTML = `${escapeHtml(msg.text)}<div class="time">${msg.time}</div>`;
+        area.appendChild(div);
+    });
+    area.scrollTop = area.scrollHeight;
+}
+function updateChatCleanup(jid, interval) {
+    if (!chatCleanupSettings[jid]) chatCleanupSettings[jid] = {};
+    chatCleanupSettings[jid].interval = interval;
+    saveHistory();
+    const labels = { 'none': 'معطّل', '15min': 'كل 15 دقيقة', '30min': 'كل نصف ساعة', '1hour': 'كل ساعة', '6hours': 'كل 6 ساعات', '1day': 'كل 24 ساعة' };
+    showToast('⏱️ ' + (labels[interval] || interval));
+}
+function saveMessage(jid, text, direction, extra) {
+    if (!messageHistory[jid]) messageHistory[jid] = [];
+    const time = new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'});
+    const obj = { text, direction, time, timestamp: Date.now() };
+    if (extra) Object.assign(obj, extra);
+    messageHistory[jid].push(obj);
+    if (messageHistory[jid].length > 500) messageHistory[jid] = messageHistory[jid].slice(-500);
+    saveHistory();
+}
+function getLastMessage(jid) { const history = messageHistory[jid] || []; return history.length > 0 ? history[history.length - 1] : null; }
+function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (!text || !currentChatJid || !connection) return;
+    // ✅ أرسل مع id فريد لمنع التكرار
+    const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    connection.send($msg({to: currentChatJid, type: 'chat', id: msgId}).c('body').t(text).tree());
+    saveMessage(currentChatJid, text, 'sent');
+    displayMessage(text, 'sent');
+    input.value = '';
+    input.focus();
+}
+function displayMessage(text, direction) {
+    const area = document.getElementById('messagesArea');
+    const time = new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'});
+    const div = document.createElement('div');
+    div.className = 'message ' + direction;
+    div.innerHTML = `${escapeHtml(text)}<div class="time">${time}</div>`;
+    area.appendChild(div);
+    area.scrollTop = area.scrollHeight;
+}
+function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+function onMessage(message) {
+    const type = message.getAttribute('type');
+    if (type !== 'chat') return true;
+    
+    // ✅ منع التكرار بواسطة msgId
+    const msgId = message.getAttribute('id') || '';
+    if (msgId && processedMsgIds.has(msgId)) {
+        console.log('⚠️ رسالة مكررة تم تجاهلها:', msgId);
+        return true;
+    }
+    if (msgId) processedMsgIds.add(msgId);
+    
+    const from = message.getAttribute('from');
+    const body = message.getElementsByTagName('body')[0];
+    if (!body) return true;
+    const text = body.textContent;
+    const fromJid = from.split('/')[0];
+    if (fromJid.indexOf(MUC_DOMAIN) !== -1) return true;
+    const fromName = contacts[fromJid]?.name || fromJid.split('@')[0];
+    
+    saveMessage(fromJid, text, 'received');
+    if (currentChatJid === fromJid) displayMessage(text, 'received');
+    else {
+        unreadCounts[fromJid] = (unreadCounts[fromJid] || 0) + 1;
+        saveHistory();
+        updateContactUI(fromJid);
+        playSound('message');
+        showToast('💬 ' + fromName + ': ' + text.substring(0, 30));
+    }
+    return true;
+}
+function updateContactUI(jid) {
+    if (!contacts[jid] || !contacts[jid]._el) return;
+    const el = contacts[jid]._el;
+    const unread = unreadCounts[jid] || 0;
+    const statusDiv = el.querySelector('.contact-status');
+    const oldBadge = el.querySelector('.unread-badge');
+    if (oldBadge) oldBadge.remove();
+    const lastMsg = getLastMessage(jid);
+    let previewText = '';
+    if (lastMsg) {
+        previewText = (lastMsg.direction === 'sent' ? 'أنت: ' : '') + (lastMsg.text || '');
+        if (previewText.length > 35) previewText = previewText.substring(0, 35) + '...';
+    } else {
+        const isOnline = contacts[jid].online;
+        previewText = isOnline ? 'متصل الآن' : (contacts[jid].subscription === 'both' ? 'غير متصل' : 'بانتظار الموافقة');
+    }
+    statusDiv.textContent = previewText;
+    statusDiv.classList.toggle('unread', unread > 0);
+    if (unread > 0) { const badge = document.createElement('div'); badge.className = 'unread-badge'; badge.textContent = unread; el.appendChild(badge); }
+}
+function showAddFriend() {
+    document.getElementById('addFriendScreen').style.display = 'block';
+    document.getElementById('friendUsername').value = '';
+    document.getElementById('friendName').value = '';
+    document.getElementById('addFriendMsg').innerHTML = '';
+}
+function closeAddFriend() { document.getElementById('addFriendScreen').style.display = 'none'; }
+function addFriendDirect() {
+    const username = document.getElementById('friendUsername').value.trim().toLowerCase();
+    const displayName = document.getElementById('friendName').value.trim() || username;
+    const msgDiv = document.getElementById('addFriendMsg');
+    if (!username) { msgDiv.innerHTML = '<span style="color:#c00;">⚠️ اكتب اسم المستخدم</span>'; return; }
+    if (username === myJid.split('@')[0]) { msgDiv.innerHTML = '<span style="color:#c00;">⚠️ لا يمكنك إضافة نفسك</span>'; return; }
+    const jid = username + '@' + XMPP_DOMAIN;
+    connection.send($pres({to: jid, type: 'subscribe'}).tree());
+    const iq = $iq({type: 'set'}).c('query', {xmlns: 'jabber:iq:roster'}).c('item', {jid: jid, name: displayName});
+    connection.sendIQ(iq, () => {
+        msgDiv.innerHTML = '<span style="color:#25d366;">✅ تم إرسال طلب الصداقة</span>';
+        setTimeout(() => { closeAddFriend(); requestRoster(); }, 1500);
+    }, () => { msgDiv.innerHTML = '<span style="color:#c00;">❌ فشل</span>'; });
+}
+function showRequests() {
+    const screen = document.getElementById('requestsScreen');
+    const list = document.getElementById('requestsList');
+    list.innerHTML = '';
+    const keys = Object.keys(pendingRequests);
+    if (keys.length === 0) list.innerHTML = '<div style="padding:40px;text-align:center;color:#999;">لا توجد طلبات</div>';
+    else {
+        keys.forEach(jid => {
+            const name = pendingRequests[jid];
+            const div = document.createElement('div');
+            div.className = 'request-item';
+            div.innerHTML = `
+                <div class="contact-avatar">${name.charAt(0).toUpperCase()}</div>
+                <div class="contact-info"><div class="contact-name">${name}</div><div class="contact-status">${jid}</div></div>
+                <button class="btn-accept" onclick="acceptRequest('${jid}')">قبول</button>
+                <button class="btn-reject" onclick="rejectRequest('${jid}')">رفض</button>
+            `;
+            list.appendChild(div);
+        });
+    }
+    screen.style.display = 'block';
+}
+function closeRequests() { document.getElementById('requestsScreen').style.display = 'none'; }
+function acceptRequest(jid) {
+    connection.send($pres({to: jid, type: 'subscribed'}).tree());
+    connection.send($pres({to: jid, type: 'subscribe'}).tree());
+    const name = pendingRequests[jid];
+    const iq = $iq({type: 'set'}).c('query', {xmlns: 'jabber:iq:roster'}).c('item', {jid: jid, name: name});
+    connection.sendIQ(iq, () => { setTimeout(requestRoster, 500); setTimeout(requestRoster, 1500); });
+    delete pendingRequests[jid];
+    updateRequestsBadge();
+    closeRequests();
+}
+function rejectRequest(jid) {
+    connection.send($pres({to: jid, type: 'unsubscribed'}).tree());
+    delete pendingRequests[jid];
+    updateRequestsBadge();
+    showRequests();
+}
+function updateRequestsBadge() {
+    const count = Object.keys(pendingRequests).length;
+    const badge = document.getElementById('requestsBadge');
+    if (count > 0) { badge.textContent = count; badge.style.display = 'inline-block'; }
+    else badge.style.display = 'none';
+}
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    if (window.toastTimeout) clearTimeout(window.toastTimeout);
+    window.toastTimeout = setTimeout(() => toast.classList.remove('show'), 3500);
+}
+function playSound(type) {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        if (type === 'message') {
+            osc.frequency.value = 800; gain.gain.value = 0.1; osc.start(); osc.stop(ctx.currentTime + 0.1);
+            setTimeout(() => { const o2 = ctx.createOscillator(); const g2 = ctx.createGain(); o2.connect(g2); g2.connect(ctx.destination); o2.frequency.value = 1000; g2.gain.value = 0.1; o2.start(); o2.stop(ctx.currentTime + 0.15); }, 120);
+        } else { osc.frequency.value = 600; gain.gain.value = 0.08; osc.start(); osc.stop(ctx.currentTime + 0.2); }
+    } catch(e) {}
+}
+// ==================== IPTV ====================
+function iptvPlayUrl() { const url = document.getElementById('iptvUrlInput').value.trim(); if (!url) { showToast('⚠️ أدخل رابط القناة'); return; } iptvPlayStream(url, 'قناة مباشرة'); }
+function iptvPlayStream(url, name) {
+    const video = document.getElementById('iptvVideo');
+    const placeholder = document.getElementById('iptvPlaceholder');
+    const loading = document.getElementById('iptvLoading');
+    const controls = document.getElementById('iptvControls');
+    if (iptvHls) { iptvHls.destroy(); iptvHls = null; }
+    video.pause(); video.removeAttribute('src'); video.load();
+    placeholder.style.display = 'none';
+    loading.classList.add('show');
+    video.style.display = 'block';
+    controls.classList.add('show');
+    if (url.toLowerCase().includes('.m3u8')) {
+        if (Hls.isSupported()) {
+            iptvHls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 10, maxBufferLength: 10, liveSyncDurationCount: 2 });
+            iptvHls.loadSource(url);
+            iptvHls.attachMedia(video);
+            iptvHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                loading.classList.remove('show');
+                video.play().catch(e => console.log(e));
+                showToast('▶ ' + name);
+            });
+            iptvHls.on(Hls.Events.ERROR, (e, data) => {
+                if (data.fatal) { loading.classList.remove('show'); showToast('❌ فشل التشغيل'); }
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = url;
+            video.addEventListener('loadedmetadata', () => { loading.classList.remove('show'); video.play(); }, { once: true });
+        } else { loading.classList.remove('show'); showToast('❌ غير مدعوم'); }
+    } else {
+        video.src = url;
+        video.addEventListener('loadeddata', () => { loading.classList.remove('show'); }, { once: true });
+        video.play().catch(e => console.log(e));
+    }
+}
+function playIptvDirect(url, name) {
+    const video = document.getElementById('iptvVideo');
+    const placeholder = document.getElementById('iptvPlaceholder');
+    const loading = document.getElementById('iptvLoading');
+    if (placeholder) placeholder.style.display = 'none';
+    if (loading) loading.classList.add('show');
+    if (video) { video.style.display = 'block'; document.getElementById('iptvControls').classList.add('show'); }
+    switchTab('iptv');
+    document.getElementById('iptvUrlInput').value = url;
+    setTimeout(() => { iptvPlayStream(url, name); }, 50);
+}
+function iptvStopVideo() {
+    const video = document.getElementById('iptvVideo');
+    if (iptvHls) { iptvHls.destroy(); iptvHls = null; }
+    video.pause(); video.removeAttribute('src'); video.load();
+    video.style.display = 'none';
+    document.getElementById('iptvControls').classList.remove('show');
+    document.getElementById('iptvPlaceholder').style.display = 'block';
+    document.getElementById('iptvUrlInput').value = '';
+}
+function iptvToggleFullscreen() {
+    const area = document.getElementById('iptvPlayerArea');
+    if (!document.fullscreenElement) { if (area.requestFullscreen) area.requestFullscreen(); else if (area.webkitRequestFullscreen) area.webkitRequestFullscreen(); }
+    else { if (document.exitFullscreen) document.exitFullscreen(); }
+}
+function iptvToggleMute() { const video = document.getElementById('iptvVideo'); video.muted = !video.muted; document.getElementById('iptvMuteBtn').textContent = video.muted ? '🔇' : '🔊'; }
+function iptvLoadM3UFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => iptvParseM3U(e.target.result, file.name);
+    reader.readAsText(file);
+}
+function iptvParseM3U(content, fileName) {
+    const lines = content.split('\n');
+    const channels = [];
+    let current = null;
+    for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+        if (line.startsWith('#EXTINF:')) {
+            const parts = line.substring(8).split(',');
+            const name = parts[parts.length - 1].trim() || 'قناة';
+            let group = 'عام';
+            const gm = line.match(/group-title="([^"]+)"/);
+            if (gm) group = gm[1];
+            current = { name, group, url: '' };
+        } else if (!line.startsWith('#') && current && (line.startsWith('http') || line.startsWith('rtmp'))) { current.url = line; channels.push(current); current = null; }
+    }
+    if (channels.length === 0) { showToast('⚠️ لا توجد قنوات'); return; }
+    iptvCurrentChannels = channels;
+    saveIptvChannels(channels);
+    iptvRenderChannelsList(channels, fileName);
+    showToast('✅ تم تحميل وحفظ ' + channels.length + ' قناة');
+}
+function iptvRenderChannelsList(channels, fileName) {
+    const list = document.getElementById('iptvChannelsList');
+    document.getElementById('iptvPlaylistTitle').textContent = '📋 ' + (fileName || 'القنوات') + ' (' + channels.length + ')';
+    list.innerHTML = '';
+    channels.forEach((ch, index) => {
+        const div = document.createElement('div');
+        div.className = 'iptv-channel-item';
+        div.id = 'iptv-ch-' + index;
+        div.innerHTML = `
+            <div class="ch-icon">📺</div>
+            <div class="ch-info">
+                <div class="ch-name">${escapeHtml(ch.name)}</div>
+                <div class="ch-group">${escapeHtml(ch.group || 'عام')}</div>
+            </div>
+            <button class="ch-delete" data-idx="${index}">🗑️</button>
+        `;
+        div.onclick = (e) => {
+            if (e.target.classList.contains('ch-delete')) return;
+            iptvSelectChannel(index);
+        };
+        const delBtn = div.querySelector('.ch-delete');
+        delBtn.onclick = (e) => { e.stopPropagation(); deleteChannelFromSaved(index); };
+        list.appendChild(div);
+    });
+}
+function deleteChannelFromSaved(index) {
+    const ch = iptvCurrentChannels[index];
+    if (!ch) return;
+    if (!confirm('حذف قناة "' + ch.name + '"؟')) return;
+    iptvCurrentChannels.splice(index, 1);
+    const savedIdx = savedIptvChannels.findIndex(c => c.url === ch.url);
+    if (savedIdx !== -1) savedIptvChannels.splice(savedIdx, 1);
+    savedIptvChannels = savedIptvChannels.slice();
+    try { localStorage.setItem('starbox_iptv_saved', JSON.stringify(savedIptvChannels)); } catch(e) {}
+    updateIptvSavedUI();
+    iptvRenderChannelsList(iptvCurrentChannels, 'قنواتي المحفوظة');
+    showToast('🗑️ تم حذف القناة');
+}
+function iptvSelectChannel(index) {
+    if (!iptvCurrentChannels[index]) return;
+    iptvCurrentChannelIndex = index;
+    const ch = iptvCurrentChannels[index];
+    document.querySelectorAll('.iptv-channel-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('iptv-ch-' + index)?.classList.add('active');
+    document.getElementById('iptvUrlInput').value = ch.url;
+    iptvPlayStream(ch.url, ch.name);
+    iptvClosePlaylist();
+}
+function iptvShowPlaylist() {
+    if (iptvCurrentChannels.length === 0 && savedIptvChannels.length > 0) {
+        iptvCurrentChannels = savedIptvChannels.slice();
+        iptvRenderChannelsList(savedIptvChannels, 'قنواتي المحفوظة');
+    }
+    if (iptvCurrentChannels.length === 0) { showToast('⚠️ لا توجد قنوات محملة'); return; }
+    document.getElementById('iptvPlaylistOverlay').classList.add('show');
+}
+function iptvClosePlaylist() { document.getElementById('iptvPlaylistOverlay').classList.remove('show'); }
+function logout() {
+    if (rosterInterval) clearInterval(rosterInterval);
+    if (cleanupInterval) clearInterval(cleanupInterval);
+    if (chatCleanupInterval) clearInterval(chatCleanupInterval);
+    if (connection) connection.disconnect('خروج المستخدم');
+    if (iptvHls) { iptvHls.destroy(); iptvHls = null; }
+    if (groupHls) { groupHls.destroy(); groupHls = null; }
+    document.querySelectorAll('.popup-screen').forEach(el => el.style.display = 'none');
+    document.getElementById('mainScreen').style.display = 'none';
+    document.getElementById('chatScreen').style.display = 'none';
+    document.getElementById('groupChatScreen').style.display = 'none';
+    document.getElementById('requestsScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginError').textContent = '';
+    contacts = {}; pendingRequests = {}; unreadCounts = {}; groupUnreadCounts = {};
+    messageHistory = {}; groupHistory = {}; joinedGroups = {};
+    myRoleInRoom = {}; myAffiliationInRoom = {};
+    processedMsgIds.clear();
+    currentChatJid = null; currentGroupJid = null;
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+            .then(() => console.log('✅ Service Worker'))
+            .catch(err => console.log('❌ SW error:', err));
+    });
+}
+</script>
+</body>
+</html>
